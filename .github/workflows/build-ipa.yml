@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-ipa:
@@ -60,6 +60,34 @@ jobs:
           path: GlassTube.ipa
           if-no-files-found: error
 
+      - name: Publish IPA to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v1.0.0"
+          cat > release_notes.md <<'EOF'
+          Automated unsigned IPA build from main (commit ${{ github.sha }}).
+
+          This release contains `GlassTube.ipa` — an **unsigned** iOS app archive.
+          Install it with Sideloadly, AltStore, TrollStore, or Xcode (see the README).
+
+          Built with xcodegen + xcodebuild. Engine: innertubex v0.13.1 API surface (Swift port).
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" GlassTube.ipa --clobber
+            gh release edit "$TAG" \
+              --title "GlassTube v1.0.0 — unsigned IPA" \
+              --notes-file release_notes.md \
+              --latest
+            echo "Updated existing release $TAG with a fresh IPA"
+          else
+            gh release create "$TAG" GlassTube.ipa \
+              --title "GlassTube v1.0.0 — unsigned IPA" \
+              --notes-file release_notes.md \
+              --latest
+            echo "Created release $TAG with the IPA"
+          fi
+
       - name: Job summary
         run: |
           {
@@ -70,6 +98,7 @@ jobs:
             echo "| IPA | \`GlassTube.ipa\` (unsigned) |"
             echo "| Version | 1.0.0 (1) |"
             echo "| Engine | innertubex v0.13.1 API surface (Swift port) |"
+            echo "| Release | [v1.0.0](../../releases/tag/v1.0.0) |"
             echo ""
             echo "The IPA is **unsigned**. Sign it with your own certificate"
             echo "(Sideloadly, AltStore, Xcode, or a paid developer account) — see the README."
