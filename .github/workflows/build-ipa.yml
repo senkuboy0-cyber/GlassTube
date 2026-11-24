@@ -21,11 +21,8 @@ jobs:
         run: |
           xcodebuild -version
           swift --version | head -1
-
-      - name: Generate app icon (drawn in code)
-        run: |
-          python3 -m pip install --quiet --disable-pip-version-check pillow
-          python3 Scripts/make_appicon.py
+          test -f GlassTube/Assets.xcassets/AppIcon.appiconset/AppIcon1024.png
+          echo "Committed 1024px app icon present"
 
       - name: Install xcodegen and generate Xcode project
         run: |

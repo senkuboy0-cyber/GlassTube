@@ -28,6 +28,27 @@ jobs:
           repository: MetrolistGroup/innertubex
           ref: v0.13.1
 
+      - name: Enable iOS framework binaries
+        # Upstream declares iosArm64/iosSimulatorArm64 targets but no framework
+        # binaries, so link*Framework* tasks do not exist by default. Appending a
+        # second kotlin{} block registers them without touching upstream logic.
+        run: |
+          if grep -q "binaries.framework" build.gradle.kts; then
+            echo "Framework binaries already configured upstream; skipping patch"
+          else
+            cat >> build.gradle.kts <<'EOF'
+          kotlin {
+              targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget> {
+                  binaries.framework {
+                      baseName = "innertubex"
+                  }
+              }
+          }
+          EOF
+            echo "Patched build.gradle.kts:"
+            tail -12 build.gradle.kts
+          fi
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
