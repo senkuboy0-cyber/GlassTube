@@ -1,0 +1,79 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ipa:
+    name: Build unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version | head -1
+
+      - name: Generate app icon (drawn in code)
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check pillow
+          python3 Scripts/make_appicon.py
+
+      - name: Install xcodegen and generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build archive (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project GlassTube.xcodeproj \
+            -scheme GlassTube \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/GlassTube.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      - name: Package unsigned IPA
+        run: |
+          APP_PATH=$(find build/GlassTube.xcarchive/Products/Applications -maxdepth 1 -name '*.app' | head -1)
+          echo "Found app bundle: $APP_PATH"
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          zip -qry GlassTube.ipa Payload
+          ls -lh GlassTube.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GlassTube-unsigned-ipa
+          path: GlassTube.ipa
+          if-no-files-found: error
+
+      - name: Job summary
+        run: |
+          {
+            echo "### GlassTube build"
+            echo ""
+            echo "| Output | Value |"
+            echo "| --- | --- |"
+            echo "| IPA | \`GlassTube.ipa\` (unsigned) |"
+            echo "| Version | 1.0.0 (1) |"
+            echo "| Engine | innertubex v0.13.1 API surface (Swift port) |"
+            echo ""
+            echo "The IPA is **unsigned**. Sign it with your own certificate"
+            echo "(Sideloadly, AltStore, Xcode, or a paid developer account) — see the README."
+          } >> "$GITHUB_STEP_SUMMARY"

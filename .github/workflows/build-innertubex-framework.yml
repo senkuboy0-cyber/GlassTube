@@ -1,0 +1,60 @@
+name: Build InnerTubeX iOS framework
+
+# Builds the original Kotlin Multiplatform library
+# (https://github.com/MetrolistGroup/innertubex, tag v0.13.1) into an
+# InnerTubeX.xcframework for iosArm64 + iosSimulatorArm64.
+#
+# Download the artifact, unzip it into ./Frameworks/InnerTubeX.xcframework
+# in this repo, and follow KotlinBridge/README.md to link it.
+#
+# This job is independent of the IPA build and is allowed to fail —
+# KMP framework linkage can break when upstream dependencies change.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"  # weekly, Mondays 06:00 UTC
+
+jobs:
+  framework:
+    name: KMP xcframework (iosArm64 + iosSimulatorArm64)
+    runs-on: macos-15
+    timeout-minutes: 120
+    continue-on-error: true
+    steps:
+      - name: Checkout innertubex v0.13.1
+        uses: actions/checkout@v4
+        with:
+          repository: MetrolistGroup/innertubex
+          ref: v0.13.1
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Link iOS release frameworks
+        run: |
+          chmod +x gradlew
+          ./gradlew linkReleaseFrameworkIosArm64 linkReleaseFrameworkIosSimulatorArm64 --no-daemon
+
+      - name: Assemble xcframework
+        run: |
+          xcodebuild -create-xcframework \
+            -framework build/bin/iosArm64/releaseFramework/innertubex.framework \
+            -framework build/bin/iosSimulatorArm64/releaseFramework/innertubex.framework \
+            -output InnerTubeX.xcframework
+          zip -qry InnerTubeX.xcframework.zip InnerTubeX.xcframework
+          ls -lh InnerTubeX.xcframework.zip
+
+      - name: Upload framework artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: InnerTubeX-xcframework
+          path: InnerTubeX.xcframework.zip
+          if-no-files-found: error
+          retention-days: 14

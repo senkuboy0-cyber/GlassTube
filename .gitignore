@@ -1,0 +1,15 @@
+# Xcode project is generated from project.yml by xcodegen
+*.xcodeproj
+xcuserdata/
+DerivedData/
+build/
+
+# macOS
+.DS_Store
+
+# Build artifacts
+*.ipa
+Payload/
+
+# Optional drop-in Kotlin framework (see KotlinBridge/README.md)
+Frameworks/
